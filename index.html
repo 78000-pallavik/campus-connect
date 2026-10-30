@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusConnect (UniGraph) — College Social Network & Graph DSA Discovery Engine</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Local Styles -->
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Vendor Libraries (Offline Local + CDN Fallback) -->
+  <script src="vendor/vis-network.min.js"></script>
+  <script>
+    if (!window.vis || !window.vis.Network) {
+      document.write('<script src="https://unpkg.com/vis-network@9.1.9/dist/vis-network.min.js"><\/script>');
+    }
+  </script>
+  <script src="vendor/lucide.min.js"></script>
+  <script>
+    if (!window.lucide) {
+      document.write('<script src="https://unpkg.com/lucide@latest"><\/script>');
+    }
+  </script>
+  <script src="vendor/canvas-confetti.min.js"></script>
+  <script>
+    if (!window.confetti) {
+      document.write('<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"><\/script>');
+    }
+  </script>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden">
+
+  <!-- ========================================== -->
+  <!-- Top Global Header                          -->
+  <!-- ========================================== -->
+  <header class="h-14 border-b border-white/10 bg-slate-900/80 backdrop-blur-md px-4 flex items-center justify-between shrink-0 z-30">
+    <!-- Brand / Logo -->
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+        <i data-lucide="share-2" class="w-5 h-5 text-white"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-bold text-sm tracking-tight text-white">CampusConnect</h1>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">UniGraph v2.0</span>
+        </div>
+        <p class="text-[10px] text-slate-400">College Social Network & Graph DSA Engine</p>
+      </div>
+    </div>
+
+    <!-- Center Preset & Perspective Selector -->
+    <div class="flex items-center gap-3">
+      <!-- Preset Network Selector -->
+      <div class="flex items-center gap-1.5 bg-slate-800/80 border border-white/10 rounded-xl px-2.5 py-1 text-xs">
+        <i data-lucide="database" class="w-3.5 h-3.5 text-indigo-400"></i>
+        <label for="preset-select" class="text-[11px] text-slate-400 font-medium">Dataset:</label>
+        <select id="preset-select" class="bg-transparent text-white font-medium focus:outline-none cursor-pointer">
+          <option value="defaultCampus">Default Tech & Arts Campus (28 Nodes)</option>
+          <option value="siloedCampus">Departmental Silos & Disconnected Dorms</option>
+        </select>
+      </div>
+
+      <!-- Perspective User Selector -->
+      <div class="flex items-center gap-2 bg-slate-800/80 border border-white/10 rounded-xl px-2.5 py-1 text-xs">
+        <img id="header-user-avatar" src="" class="w-6 h-6 rounded-full bg-slate-700 object-cover border border-white/10" />
+        <div class="flex flex-col text-left leading-tight hidden sm:flex">
+          <span id="header-user-name" class="font-bold text-white text-[11px] leading-none"></span>
+          <span id="header-user-major" class="text-[10px] text-slate-400 font-medium"></span>
+        </div>
+        <div class="w-px h-3.5 bg-white/10 mx-0.5"></div>
+        <label for="current-user-select" class="text-[11px] text-slate-400 font-medium">Switch:</label>
+        <select id="current-user-select" class="bg-transparent text-white font-semibold focus:outline-none cursor-pointer max-w-[130px] truncate">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+    </div>
+
+    <!-- Right Actions & Search -->
+    <div class="flex items-center gap-2">
+      <!-- Search Input -->
+      <div class="relative w-44">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5"></i>
+        <input id="student-search-input" type="search" placeholder="Find student / major..." class="w-full bg-slate-800/60 border border-white/10 rounded-xl pl-8 pr-3 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" />
+      </div>
+
+      <!-- Add Student Button -->
+      <button id="btn-open-add-student" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/30 transition-colors">
+        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Add Student
+      </button>
+
+      <!-- Add Edge Button -->
+      <button id="btn-open-add-edge" class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 text-xs font-semibold transition-colors">
+        <i data-lucide="git-commit" class="w-3.5 h-3.5 text-indigo-400"></i> Add Edge
+      </button>
+
+      <!-- Import/Export Menu -->
+      <div class="flex items-center border-l border-white/10 pl-2 gap-1">
+        <button id="btn-export-json" title="Export Graph JSON" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+          <i data-lucide="download" class="w-4 h-4"></i>
+        </button>
+        <button id="btn-import-json" title="Import Graph JSON" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
+          <i data-lucide="upload" class="w-4 h-4"></i>
+        </button>
+        <input type="file" id="json-file-input" accept=".json" class="hidden" />
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- Main Workspace (Sidebar + Canvas + Drawer) -->
+  <!-- ========================================== -->
+  <div class="flex-1 flex overflow-hidden relative">
+
+    <!-- LEFT SIDEBAR: Algorithmic Features & Controls -->
+    <aside class="w-[430px] border-r border-white/10 bg-slate-900/70 backdrop-blur-xl flex flex-col shrink-0 z-20">
+      
+      <!-- Feature Navigation Tabs -->
+      <div class="grid grid-cols-6 border-b border-white/10 bg-slate-950/40 text-[11px] font-semibold text-center select-none">
+        <button data-tab="pathfinder" class="nav-tab-btn py-2.5 text-indigo-400 border-b-2 border-indigo-500 hover:text-white transition-all flex flex-col items-center gap-1">
+          <i data-lucide="route" class="w-4 h-4"></i>
+          <span>BFS Path</span>
+        </button>
+        <button data-tab="mutual" class="nav-tab-btn py-2.5 text-slate-400 border-b-2 border-transparent hover:text-white transition-all flex flex-col items-center gap-1">
+          <i data-lucide="git-merge" class="w-4 h-4"></i>
+          <span>Mutual</span>
+        </button>
+        <button data-tab="communities" class="nav-tab-btn py-2.5 text-slate-400 border-b-2 border-transparent hover:text-white transition-all flex flex-col items-center gap-1">
+          <i data-lucide="network" class="w-4 h-4"></i>
+          <span>Clusters</span>
+        </button>
+        <button data-tab="recommendations" class="nav-tab-btn py-2.5 text-slate-400 border-b-2 border-transparent hover:text-white transition-all flex flex-col items-center gap-1">
+          <i data-lucide="user-check" class="w-4 h-4"></i>
+          <span>2-Hop</span>
+        </button>
+        <button data-tab="quad" class="nav-tab-btn py-2.5 text-slate-400 border-b-2 border-transparent hover:text-white transition-all flex flex-col items-center gap-1">
+          <i data-lucide="message-square" class="w-4 h-4"></i>
+          <span>The Quad</span>
+        </button>
+        <button data-tab="evaluator" class="nav-tab-btn py-2.5 text-slate-400 border-b-2 border-transparent hover:text-white transition-all flex flex-col items-center gap-1">
+          <i data-lucide="award" class="w-4 h-4"></i>
+          <span>Evaluator</span>
+        </button>
+      </div>
+
+      <!-- Feature Panels Container -->
+      <div class="flex-1 overflow-y-auto p-4 custom-scroll">
+
+        <!-- PANEL 1: BFS Connection Path Finder -->
+        <div id="panel-pathfinder" class="tool-panel space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-white/5">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="route" class="w-4 h-4 text-indigo-400"></i> Shortest Connection Path
+              </h2>
+              <p class="text-[11px] text-slate-400">Breadth-First Search (BFS) · O(|V| + |E|)</p>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
+              Optimal Unweighted
+            </span>
+          </div>
+
+          <!-- Source & Target Selectors -->
+          <div class="space-y-2">
+            <div>
+              <label class="text-[11px] text-slate-400 font-semibold mb-1 flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span> Start Student (Source):
+              </label>
+              <select id="bfs-source-select" class="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <!-- dynamic -->
+              </select>
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-400 font-semibold mb-1 flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span> Target Student (Destination):
+              </label>
+              <select id="bfs-target-select" class="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+                <!-- dynamic -->
+              </select>
+            </div>
+            <button id="btn-run-bfs" class="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all">
+              <i data-lucide="play" class="w-4 h-4 fill-white"></i> Trace Shortest Path
+            </button>
+          </div>
+
+          <!-- Playback Controls Bar -->
+          <div class="p-3 rounded-xl bg-slate-800/60 border border-white/10 space-y-2.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="sliders" class="w-3.5 h-3.5 text-amber-400"></i> Playback Controls
+              </span>
+              <span id="playback-step-counter" class="text-[11px] font-mono text-indigo-300">Step 0 / 0</span>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
+              <div id="playback-progress-bar" class="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-200" style="width: 0%"></div>
+            </div>
+
+            <!-- Buttons Grid -->
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-1">
+                <button id="btn-playback-reset" title="Reset to Start" class="p-1.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-200 transition-colors">
+                  <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                </button>
+                <button id="btn-playback-step-prev" title="Step Back" class="p-1.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-200 transition-colors">
+                  <i data-lucide="skip-back" class="w-3.5 h-3.5"></i>
+                </button>
+                <button id="btn-playback-play" title="Play / Pause" class="p-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
+                  <i data-lucide="play" class="w-4 h-4"></i>
+                </button>
+                <button id="btn-playback-step-next" title="Step Next" class="p-1.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-200 transition-colors">
+                  <i data-lucide="skip-forward" class="w-3.5 h-3.5"></i>
+                </button>
+                <button id="btn-playback-finish" title="Jump to End" class="p-1.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 text-slate-200 transition-colors">
+                  <i data-lucide="fast-forward" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+
+              <!-- Speed Slider -->
+              <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                <span class="text-[10px]">Speed:</span>
+                <input id="playback-speed-slider" type="range" min="0.5" max="3.5" step="0.5" value="1.0" class="w-16 accent-indigo-500 cursor-pointer" />
+                <span id="playback-speed-val" class="font-mono text-[10px] text-white">1.0x</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- FIFO Queue Visualizer -->
+          <div class="p-3 rounded-xl bg-slate-800/40 border border-white/5 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="layers" class="w-3.5 h-3.5 text-cyan-400"></i> FIFO Queue State
+              </span>
+              <span class="text-[10px] text-slate-500 font-mono">Head → Tail</span>
+            </div>
+            <div id="bfs-queue-visualizer" class="flex flex-wrap items-center gap-1.5 min-h-[32px] p-2 rounded-lg bg-slate-900/60 border border-white/5 overflow-x-auto">
+              <span class="text-xs text-slate-500 italic">Queue Empty (∅)</span>
+            </div>
+          </div>
+
+          <!-- Visited Set Visualizer -->
+          <div class="p-3 rounded-xl bg-slate-800/40 border border-white/5 space-y-1.5">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-semibold text-slate-300 flex items-center gap-1.5">
+                <i data-lucide="check-square" class="w-3.5 h-3.5 text-amber-400"></i> Visited Set (Cycle Prevention)
+              </span>
+              <span class="text-[10px] text-slate-500 font-mono">O(1) Set.has()</span>
+            </div>
+            <div id="bfs-visited-visualizer" class="flex flex-wrap items-center gap-1 min-h-[30px] p-2 rounded-lg bg-slate-900/60 border border-white/5">
+              <span class="text-xs text-slate-500 italic">Empty Set { }</span>
+            </div>
+          </div>
+
+          <!-- Algorithmic Step Log -->
+          <div class="p-3 rounded-xl bg-slate-950/60 border border-white/5 space-y-1">
+            <div class="text-[10px] uppercase font-semibold text-slate-500">Live Step Log:</div>
+            <p id="bfs-step-log" class="text-xs font-mono text-slate-300 leading-relaxed min-h-[38px]">
+              Ready. Choose students and click "Trace Shortest Path".
+            </p>
+          </div>
+
+          <!-- Resolved Shortest Path & Metrics Container -->
+          <div id="bfs-metrics-container"></div>
+
+          <!-- Alternative DFS Routes Container -->
+          <div id="bfs-alt-paths-container"></div>
+        </div>
+
+        <!-- PANEL 2: Mutual Friends (Set Intersection) -->
+        <div id="panel-mutual" class="tool-panel hidden space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-white/5">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="git-merge" class="w-4 h-4 text-amber-400"></i> Mutual Friends Discovery
+              </h2>
+              <p class="text-[11px] text-slate-400">Set Intersection · O(min(deg(A), deg(B)))</p>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+              Optimized
+            </span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <label class="text-[11px] text-slate-400 font-semibold mb-1 block">Student A:</label>
+              <select id="mutual-a-select" class="w-full bg-slate-800 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                <!-- dynamic -->
+              </select>
+            </div>
+            <div>
+              <label class="text-[11px] text-slate-400 font-semibold mb-1 block">Student B:</label>
+              <select id="mutual-b-select" class="w-full bg-slate-800 border border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500">
+                <!-- dynamic -->
+              </select>
+            </div>
+          </div>
+
+          <button id="btn-run-mutual" class="w-full py-2 px-3 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-lg shadow-amber-600/30 flex items-center justify-center gap-2 transition-all">
+            <i data-lucide="sparkles" class="w-4 h-4"></i> Compute Common Friends & Affinities
+          </button>
+
+          <div id="mutual-results-container"></div>
+        </div>
+
+        <!-- PANEL 3: Campus Sub-Communities (DFS) -->
+        <div id="panel-communities" class="tool-panel hidden space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-white/5">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="network" class="w-4 h-4 text-pink-400"></i> Campus Sub-Communities
+              </h2>
+              <p class="text-[11px] text-slate-400">Maximal Connected Components (DFS) · O(|V| + |E|)</p>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-pink-500/10 text-pink-300 border border-pink-500/20">
+              Partitioning
+            </span>
+          </div>
+
+          <button id="btn-run-communities" class="w-full py-2 px-3 rounded-xl bg-pink-600 hover:bg-pink-500 text-white text-xs font-bold shadow-lg shadow-pink-600/30 flex items-center justify-center gap-2 transition-all">
+            <i data-lucide="layers" class="w-4 h-4"></i> Detect & Color-Code Subgraphs
+          </button>
+
+          <div id="communities-results-container"></div>
+        </div>
+
+        <!-- PANEL 4: 2-Hop Recommendation Engine -->
+        <div id="panel-recommendations" class="tool-panel hidden space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-white/5">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="user-check" class="w-4 h-4 text-indigo-400"></i> People You May Know
+              </h2>
+              <p class="text-[11px] text-slate-400">2-Hop BFS Discovery & Weighted Ranking</p>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+              PRD Formula
+            </span>
+          </div>
+
+          <div id="recommendations-list-container"></div>
+        </div>
+
+        <!-- PANEL 5: "The Quad" Campus Social Feed -->
+        <div id="panel-quad" class="tool-panel hidden space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-white/5">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="message-square" class="w-4 h-4 text-emerald-400"></i> The Quad
+              </h2>
+              <p class="text-[11px] text-slate-400">Campus Social Feed with Graph Adjacency Filter</p>
+            </div>
+          </div>
+
+          <!-- Create Post Card -->
+          <form id="quad-post-form" class="p-3 rounded-xl bg-slate-800/60 border border-white/10 space-y-2">
+            <textarea id="quad-post-input" rows="2" placeholder="Broadcast to campus or clubs (#Hackathon, #Design)..." class="w-full bg-slate-900/70 border border-white/10 rounded-xl p-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 resize-none"></textarea>
+            <div class="flex items-center gap-2">
+              <input id="quad-post-tags" type="text" placeholder="Tags (e.g. #Hackathon, #IoT)" class="flex-1 bg-slate-900/70 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500" />
+              <button type="submit" class="px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1 transition-colors">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i> Post
+              </button>
+            </div>
+          </form>
+
+          <!-- Graph Adjacency Filter Buttons -->
+          <div class="flex items-center gap-1 p-1 rounded-xl bg-slate-950/60 border border-white/5 text-[11px] font-semibold">
+            <button data-filter="campus" class="quad-filter-btn flex-1 py-1.5 rounded-lg text-center transition-colors bg-indigo-600 text-white">
+              Campus-Wide
+            </button>
+            <button data-filter="friends" class="quad-filter-btn flex-1 py-1.5 rounded-lg text-center text-slate-400 hover:text-white transition-colors">
+              Friends Only
+            </button>
+            <button data-filter="2hop" class="quad-filter-btn flex-1 py-1.5 rounded-lg text-center text-slate-400 hover:text-white transition-colors">
+              2-Hop Network
+            </button>
+          </div>
+
+          <!-- Tag Pills Bar -->
+          <div id="quad-tags-container" class="flex flex-wrap gap-1"></div>
+
+          <!-- Posts Feed Stream -->
+          <div id="quad-posts-container" class="space-y-3"></div>
+        </div>
+
+        <!-- PANEL 6: DSA Evaluator / Professor Suite -->
+        <div id="panel-evaluator" class="tool-panel hidden space-y-4">
+          <div class="flex items-center justify-between pb-2 border-b border-white/5">
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="award" class="w-4 h-4 text-indigo-400"></i> DSA Faculty Evaluator Suite
+              </h2>
+              <p class="text-[11px] text-slate-400">Theoretical Complexity & Ground Truth Verification</p>
+            </div>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">
+              Prof. Verification
+            </span>
+          </div>
+
+          <button id="btn-run-evaluator-tests" class="w-full py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 transition-all">
+            <i data-lucide="play-circle" class="w-4 h-4"></i> Run All Algorithmic Assertions
+          </button>
+
+          <!-- Complexity Reference Table -->
+          <div class="space-y-1">
+            <h4 class="text-xs font-semibold text-slate-300">Asymptotic Complexity Reference</h4>
+            <div id="evaluator-complexity-table" class="overflow-x-auto rounded-xl border border-white/10 bg-slate-900/60"></div>
+          </div>
+
+          <!-- Verification Test Reports -->
+          <div id="evaluator-results-container"></div>
+        </div>
+
+      </div>
+    </aside>
+
+    <!-- CENTER: Canvas Area + Floating HUD -->
+    <main class="flex-1 relative flex flex-col overflow-hidden bg-slate-950">
+      
+      <!-- Floating Top Stats Bar -->
+      <div class="absolute top-4 left-4 z-10 glass-panel rounded-2xl px-4 py-2 flex items-center gap-5 text-xs">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse"></span>
+          <span class="text-slate-400">Vertices |V|:</span>
+          <span id="stat-vertices" class="font-mono font-bold text-white">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-slate-400">Edges |E|:</span>
+          <span id="stat-edges" class="font-mono font-bold text-white">0</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-slate-400">Avg Degree:</span>
+          <span id="stat-avg-degree" class="font-mono font-bold text-indigo-300">0.00</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-slate-400">Graph Density:</span>
+          <span id="stat-density" class="font-mono font-bold text-pink-300">0.0000</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-slate-400">Isolated Nodes:</span>
+          <span id="stat-isolated" class="font-mono font-bold text-amber-300">0</span>
+        </div>
+      </div>
+
+      <!-- Floating Canvas Controls -->
+      <div class="absolute bottom-4 left-4 z-10 glass-panel rounded-xl p-1.5 flex items-center gap-1 text-slate-300 text-xs shadow-xl">
+        <button id="btn-fit-canvas" title="Fit Entire Graph" class="p-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors">
+          <i data-lucide="maximize" class="w-4 h-4"></i>
+        </button>
+        <button id="btn-zoom-in" title="Zoom In" class="p-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors">
+          <i data-lucide="zoom-in" class="w-4 h-4"></i>
+        </button>
+        <button id="btn-zoom-out" title="Zoom Out" class="p-2 rounded-lg hover:bg-white/10 hover:text-white transition-colors">
+          <i data-lucide="zoom-out" class="w-4 h-4"></i>
+        </button>
+        <div class="w-px h-4 bg-white/10 my-auto mx-0.5"></div>
+        <button id="btn-toggle-physics" title="Toggle Physics Simulation" class="p-2 rounded-lg hover:bg-white/10 transition-colors bg-indigo-600/30 text-indigo-300">
+          <i data-lucide="zap" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Floating Legend -->
+      <div class="absolute bottom-4 right-4 z-10 glass-panel rounded-xl px-3 py-2 text-[11px] text-slate-300 space-y-1 shadow-xl">
+        <div class="font-bold text-white text-xs mb-1">Department Color Coding</div>
+        <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px]">
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#6366f1]"></span> Computer Science</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#ec4899]"></span> Design & HCI</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#f59e0b]"></span> Electrical & IoT</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#10b981]"></span> Biomedical Eng</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#ef4444]"></span> Robotics & Mech</span>
+          <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#0ea5e9]"></span> Business & Fin</span>
+        </div>
+      </div>
+
+      <!-- Vis.js Canvas Element -->
+      <div id="network-canvas" class="flex-1"></div>
+    </main>
+
+    <!-- RIGHT SLIDE-OVER DRAWER: Student Profile & Quick Actions -->
+    <aside id="profile-drawer" class="absolute top-0 right-0 h-full w-[360px] glass-panel border-l border-white/10 z-30 p-5 transform translate-x-full transition-transform duration-300 ease-in-out shadow-2xl flex flex-col">
+      <div id="profile-drawer-content" class="flex-1 flex flex-col">
+        <!-- Rendered dynamically by StudentModal -->
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODALS                                     -->
+  <!-- ========================================== -->
+
+  <!-- Modal: Add Student -->
+  <div id="modal-add-student" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="glass-panel w-[460px] rounded-2xl p-6 border border-white/10 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="user-plus" class="w-5 h-5 text-indigo-400"></i> Add Student (Vertex)
+        </h3>
+        <button id="btn-close-add-student" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-add-student" class="space-y-3 text-xs">
+        <div>
+          <label class="text-slate-400 font-semibold mb-1 block">Full Name:</label>
+          <input id="new-student-name" required type="text" placeholder="e.g. Jordan Lee" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-slate-400 font-semibold mb-1 block">Major / Dept:</label>
+            <select id="new-student-major" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500">
+              <option value="Computer Science">Computer Science</option>
+              <option value="Design & HCI">Design & HCI</option>
+              <option value="Electrical & IoT">Electrical & IoT</option>
+              <option value="Robotics & Mech">Robotics & Mech</option>
+              <option value="Biomedical Eng">Biomedical Eng</option>
+              <option value="Business & Fin">Business & Fin</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-slate-400 font-semibold mb-1 block">Year / Standing:</label>
+            <select id="new-student-year" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500">
+              <option value="Freshman (1st Year)">Freshman (1st Year)</option>
+              <option value="Sophomore (2nd Year)">Sophomore (2nd Year)</option>
+              <option value="Junior (3rd Year)">Junior (3rd Year)</option>
+              <option value="Senior (4th Year)">Senior (4th Year)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="text-slate-400 font-semibold mb-1 block">Dorm / Residence:</label>
+          <input id="new-student-dorm" type="text" placeholder="e.g. Turing House" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label class="text-slate-400 font-semibold mb-1 block">Campus Clubs (comma-separated):</label>
+          <input id="new-student-clubs" type="text" placeholder="e.g. Hackathon Club, ACM Chapter" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label class="text-slate-400 font-semibold mb-1 block">Skills (comma-separated):</label>
+          <input id="new-student-skills" type="text" placeholder="e.g. React, PyTorch, Figma" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div>
+          <label class="text-slate-400 font-semibold mb-1 block">Bio / Goal:</label>
+          <input id="new-student-bio" type="text" placeholder="e.g. Building campus apps..." class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500" />
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
+            Create Student Node
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Edge (Friendship) -->
+  <div id="modal-add-edge" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+    <div class="glass-panel w-[400px] rounded-2xl p-6 border border-white/10 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-white/10">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="git-commit" class="w-5 h-5 text-indigo-400"></i> Add Friendship Edge
+        </h3>
+        <button id="btn-close-add-edge" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="form-add-edge" class="space-y-3 text-xs">
+        <div>
+          <label class="text-slate-400 font-semibold mb-1 block">First Student:</label>
+          <select id="modal-edge-a" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500">
+            <!-- dynamic -->
+          </select>
+        </div>
+
+        <div>
+          <label class="text-slate-400 font-semibold mb-1 block">Second Student:</label>
+          <select id="modal-edge-b" class="w-full bg-slate-800 border border-white/10 rounded-xl p-2.5 text-white focus:outline-none focus:border-indigo-500">
+            <!-- dynamic -->
+          </select>
+        </div>
+
+        <p class="text-[11px] text-slate-400 italic">Adds an undirected edge {u, v} into both Adjacency Lists: Map&lt;u, Set&gt; and Map&lt;v, Set&gt;.</p>
+
+        <div class="pt-2">
+          <button type="submit" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors">
+            Connect Students
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Universal Standalone Application Bundle (Runs on both file:// and http:// with zero CORS restriction) -->
+  <script src="js/bundle.js"></script>
+</body>
+</html>
